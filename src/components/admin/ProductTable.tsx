@@ -1,83 +1,86 @@
 import React from 'react';
-import styles from './ProductTable.module.css';
-import type { Product } from '../../types/models'; // Importamos la interfaz Product
- // Importamos la interfaz Product
+import type { Product } from '../../types/models';
 
-// 1. Definir las props que recibe el componente
 interface ProductTableProps {
   products: Product[];
   onEdit: (product: Product) => void;
   onDelete: (id: number) => void;
 }
 
-// 2. Usar React.FC y tipar las props
 const ProductTable: React.FC<ProductTableProps> = ({ products, onEdit, onDelete }) => {
 
-  // La lógica interna no cambia, pero se beneficia del tipado
-  const getStockStatus = (stock: number) => {
+  const getStockStatusClasses = (stock: number): string => {
     if (stock === 0) {
-      return { text: 'Sin stock', className: styles.statusRed };
+      // Usa las clases de tu tailwind.config.js
+      return 'bg-stock-out text-white'; // 'Sin stock'
     }
     if (stock > 0 && stock <= 10) {
-      return { text: 'Stock bajo', className: styles.statusYellow };
+      return 'bg-stock-low text-white'; // 'Stock bajo'
     }
-    return { text: 'En stock', className: styles.statusGreen };
+    return 'bg-stock-high text-white'; // 'En stock'
+  };
+
+  const getStockStatusText = (stock: number): string => {
+    if (stock === 0) return 'Sin Stock';
+    if (stock > 0 && stock <= 10) return 'Stock Bajo';
+    return 'En Stock';
   };
 
   return (
-    <table className={styles.productTable}>
-      <thead>
-        <tr>
-          <th>Imagen</th>
-          <th>Producto</th>
-          <th>Categoría</th>
-          <th>Precio</th>
-          <th>Stock</th>
-          <th>Estado (API)</th>
-          <th>Estado Stock</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {products.map((product) => { // 'product' ahora es de tipo 'Product'
-          const stockStatus = getStockStatus(product.stock);
-          return (
-            <tr key={product.id}>
-              <td>
+    <div className="overflow-x-auto bg-white rounded-lg shadow-lg">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-800">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Imagen</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Producto</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Categoría</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Precio</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Stock</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado (API)</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado Stock</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
+          {products.map((product) => (
+            <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+              <td className="px-6 py-4 whitespace-nowrap">
                 <img 
-                  src={product.images.length > 0 ? product.images[0].url : '/placeholder.png'} 
+                  src={product.images.length > 0 ? product.images[0].url : 'https://via.placeholder.com/40'} 
                   alt={product.title} 
-                  className={styles.productImage}
+                  className="w-10 h-10 rounded-md object-cover"
                 />
               </td>
-              <td>
-                <strong>{product.title}</strong>
-                {/* TS nos ayuda a evitar errores en nulos/undefined */}
-                <p>{product.description?.substring(0, 50) ?? 'Sin descripción'}...</p>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">{product.title}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{product.slug}</div>
               </td>
-              {/* TS también nos ayuda a asegurar que 'tags' existe */}
-              <td>{product.tags?.map(tag => tag.name).join(', ') || 'N/A'}</td>
-              <td>${product.price}</td>
-              <td>{product.stock}</td>
-              <td>
-                <span className={`${styles.statusPill} ${product.status === 'published' ? styles.published : styles.draft}`}>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                {product.tags?.map(tag => tag.name).join(', ') || 'N/A'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">${product.price}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300">{product.stock}</td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                  product.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}>
                   {product.status}
                 </span>
               </td>
-              <td>
-                <span className={`${styles.statusPill} ${stockStatus.className}`}>
-                  {stockStatus.text}
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStockStatusClasses(product.stock)}`}>
+                  {getStockStatusText(product.stock)}
                 </span>
               </td>
-              <td className={styles.actions}>
-                <button onClick={() => onEdit(product)} className={styles.actionBtn}>Editar</button>
-                <button onClick={() => onDelete(product.id)} className={`${styles.actionBtn} ${styles.deleteBtn}`}>Borrar</button>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                <button onClick={() => onEdit(product)} className="text-primary hover:text-primary-dark">Editar</button>
+                <button onClick={() => onDelete(product.id)} className="text-red-600 hover:text-red-800">Eliminar</button>
               </td>
             </tr>
-          );
-        })}
-      </tbody>
-    </table>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 };
 

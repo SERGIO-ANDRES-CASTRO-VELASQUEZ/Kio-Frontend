@@ -51,6 +51,7 @@ export interface DecodedJwt {
 // Para el usuario en nuestro AuthContext
 export interface AuthUser {
   id: number;
+  name: string;
   email: string;
   roles: string[];
   accountId?: number; // Lo obtendremos de /user/{pk}
@@ -63,4 +64,5 @@ export interface CartItem {
   price: number; // Guardamos el precio como número
   image: string;
   quantity: number;
+  slug: string; // Añadido para enlazar al producto
 }

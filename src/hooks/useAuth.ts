@@ -1,22 +1,21 @@
 import { useContext } from 'react';
-// Asegúrate de que la ruta de importación sea correcta
-import { AuthContext, IAuthContext } from '../context/AuthContext'; 
+// 1. Importa el OBJETO de contexto desde el archivo de contexto
+import { AuthContext } from '../context/AuthContext'; 
+// 2. Importa la INTERFAZ de contexto desde el archivo de tipos
+import { IAuthContext } from '../types/contexts';
 
 /**
  * Hook personalizado para acceder al AuthContext.
- * * Proporciona una forma sencilla de consumir el estado de autenticación
- * y las funciones (login, logout, etc.) en cualquier componente.
- * * Lanza un error si se intenta usar fuera de un <AuthProvider>.
  */
 export const useAuth = (): IAuthContext => {
-  // 1. Consume el contexto
+  // 3. Consume el contexto
   const context = useContext(AuthContext);
 
-  // 2. Verifica que el contexto exista
+  // 4. Verifica que el contexto exista
   if (!context) {
     throw new Error('useAuth debe usarse dentro de un AuthProvider');
   }
 
-  // 3. Devuelve el valor del contexto (ya tipado por IAuthContext)
+  // 5. Devuelve el valor del contexto
   return context;
 };

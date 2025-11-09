@@ -1,111 +1,127 @@
 import React, { useState } from 'react';
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-import { useCart } from '../context/CartContext'; // Asumimos que useCart() está tipado
-import { useAuth } from '../context/AuthContext';
+import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import type { OrderCreateRequest, OrderDetailRequest } from '../types/apiRequests';
-// Importar tipos específicos de PayPal
-// Importar tipos específicos de PayPal
-import type { OnApproveData, CreateOrderData, CreateOrderActions, OnApproveActions } from '@paypal/paypal-js';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
-const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || "TU_FALLBACK_ID";
+// 1. Importa el componente que acabamos de crear
+import PayPalButton from '../components/checkout/PayPalButton';
 
 export const CheckoutPage: React.FC = () => {
-  // Asumimos que useCart() devuelve:
-  // cartItems: CartItem[]
-  // getTotalAmount: () => number
-  // clearCart: () => void
   const { cartItems, getTotalAmount, clearCart } = useCart();
   const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  // 1. Tipar la función createOrder de PayPal
-  const createPayPalOrder = (data: CreateOrderData, actions: CreateOrderActions) => {
-    return actions.order.create({
-      purchase_units: [{
-        amount: {
-          value: getTotalAmount().toFixed(2),
-          currency_code: 'USD',
-        },
-      }],
-    });
-  };
+  const totalAmount = getTotalAmount().toFixed(2);
 
-  // 2. Tipar la función onApprove de PayPal
-  const onPayPalApprove = async (data: OnApproveData, actions: OnApproveActions): Promise<void> => {
+  /**
+   * Esta función se ejecuta DESPUÉS de que PayPal confirma el pago.
+   * Recibe los detalles de PayPal y crea el pedido en NUESTRO backend.
+   */
+  const handlePaymentSuccess = async (payPalDetails: any) => {
     setProcessing(true);
     setError(null);
     
-    // Es obligatorio llamar a capture()
-    const details = await actions.order?.capture();
-    if (!details) {
-      setError("No se pudo capturar el pago. Por favor intente de nuevo.");
-      setProcessing(false);
-      return;
-    }
+    console.log("Pago de PayPal exitoso:", payPalDetails);
 
     try {
-      // 3. Crear el pedido en nuestro backend (OrderController.java)
-      // Necesitamos el 'accountId' del usuario.
-      // Tu `AuthContext` debería ser modificado para hacer un fetch de /user/{pk}
-      // al loguearse y guardar el `account.id` (del UserDetailResponse.java).
-      
+      // 1. Validar que tengamos la información del usuario
       if (!user || !user.accountId) { 
-        // Suponiendo que modificaste AuthContext para incluir 'accountId'
         throw new Error("Usuario no autenticado o falta ID de la cuenta. Asegúrate de que AuthContext haga fetch de /user/pk.");
       }
 
-      // 4. Mapear el carrito a DetailProductRequest[]
+      // 2. Mapear el carrito a DetailProductRequest[]
       const shoppingDetails: OrderDetailRequest[] = cartItems.map(item => ({
         product: item.id,
         quantity: item.quantity,
         price: parseFloat((item.price * item.quantity).toFixed(2))
       }));
 
-      // 5. Crear el body de la petición (OrderCreateRequest.java)
+      // 3. Crear el body de la petición (OrderCreateRequest.java)
+      //
       const orderRequest: OrderCreateRequest = {
         account: user.accountId,
         shopping: shoppingDetails,
-        amount: parseFloat(getTotalAmount().toFixed(2)),
+        amount: parseFloat(totalAmount),
         status: "En Preparacion" // O "Pagado", según tu lógica
       };
 
-      // 6. Enviar a la API
+      // 4. Enviar a nuestra API (OrderController.java)
+      //
       await api.post('/user/order', orderRequest);
 
+      // 5. Limpiar carrito y redirigir
       clearCart();
-      setProcessing(false);
-      navigate('/profile/orders?status=success');
+      navigate('/cuenta/pedidos?status=success'); // Redirige a la página de pedidos
 
     } catch (err: any) {
-      console.error("Error al crear el pedido:", err);
-      setError("Hubo un problema al procesar tu pedido: " + (err?.message || 'Error desconocido'));
+      console.error("Error al crear el pedido en el backend:", err);
+      setError("Pago recibido, pero hubo un problema al registrar tu pedido: " + (err?.message || 'Error desconocido'));
+      // NOTA: En un caso real, aquí deberías tener lógica para
+      // reembolsar el pago de PayPal si la creación del pedido falla.
+    } finally {
       setProcessing(false);
     }
   };
 
+  /**
+   * Maneja errores que vienen del componente PayPalButton
+   */
+  const handlePaymentError = (err: any) => {
+    console.error("Error de PayPal:", err);
+    setError("Hubo un error con el pago de PayPal. Por favor, inténtalo de nuevo.");
+  };
+
   return (
-    <div className="checkout-container">
-      <h2>Completa tu Pedido</h2>
-      {processing && <p>Procesando...</p> /* <LoadingSpinner /> */}
-      {error && <div style={{ color: 'red' }}>{error}</div>}
+    <div className="max-w-2xl mx-auto p-4 py-12 animate-fade-in">
+      <h1 className="text-3xl font-bold font-heading text-gray-800 mb-8 text-center">
+        Finalizar Compra
+      </h1>
       
-      <div className="order-summary">
-        <h3>Total: ${getTotalAmount().toFixed(2)}</h3>
-      </div>
+      {processing && <LoadingSpinner fullScreen />}
       
-      <PayPalScriptProvider options={{ "client-id": PAYPAL_CLIENT_ID, currency: "USD" }}>
-        <PayPalButtons
-          style={{ layout: "vertical" }}
-          createOrder={createPayPalOrder}
-          onApprove={onPayPalApprove}
-          onError={(err: any) => setError("Error con el pago de PayPal: " + err.message)}
+      <div className="bg-white shadow-lg rounded-lg p-8">
+        {error && (
+          <div className="text-red-500 p-4 bg-red-100 rounded-md mb-6">
+            {error}
+          </div>
+        )}
+        
+        {/* Resumen del Pedido */}
+        <div className="border-b pb-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Resumen del Pedido</h2>
+          {cartItems.map(item => (
+            <div key={item.id} className="flex justify-between items-center mb-2 text-gray-600">
+              <span>{item.title} (x{item.quantity})</span>
+              <span className="font-medium">${(item.price * item.quantity).toFixed(2)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between items-center mt-4 pt-4 border-t font-bold text-xl">
+            <span>Total</span>
+            <span>${totalAmount}</span>
+          </div>
+        </div>
+
+        {/* 2. Usamos el componente del botón */}
+        <PayPalButton
+          totalAmount={totalAmount}
+          onApprove={handlePaymentSuccess}
+          onError={handlePaymentError}
           disabled={processing || cartItems.length === 0}
         />
-      </PayPalScriptProvider>
+        
+        {cartItems.length === 0 && (
+          <p className="text-center text-gray-500 mt-4">
+            Tu carrito está vacío.
+          </p>
+        )}
+      </div>
     </div>
   );
 };
+
+export default CheckoutPage;
